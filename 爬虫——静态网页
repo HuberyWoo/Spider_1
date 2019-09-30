@@ -1,0 +1,181 @@
+#-*- coding:utf-8 -*-
+
+import urllib
+#import urllib2#仅仅适用于python2
+#import cookielib#同上
+from http import cookiejar
+
+import re
+from bs4 import BeautifulSoup
+#import lxml
+import csv
+
+import time
+import datetime
+from datetime import datetime as dt
+import sys
+import random
+
+#不需登录,抓取静态网页
+class spider():
+	def __init__(self,url):
+		self.url=url
+		cj=cookiejar.CookieJar()
+		handler=urllib.request.HTTPCookieProcessor(cj)
+		self.opener=urllib.request.build_opener(handler)
+		self.html=''
+		self.records=[]
+	def getHtml(self,data={}):#无cookie抓取网页
+		#print("*"*10+self.url)
+		try:
+			rqs=urllib.request.Request(self.url,headers=data)
+			response=urllib.request.urlopen(rqs)
+		except urllib.request.URLError as e:
+			if hasattr(e,'code'):
+				print('Connection Failed-1: '+str(e.code))
+				sys.exit(0)
+			if hasattr(e,'reason'):
+				print('Conection Failed-2:'+str(e.reason))
+				sys.exit(0)
+		html=response.read().decode("utf-8")#将字节解码转换为字符
+		self.html=html
+		#print('Gotten the HTML!')
+		with open('D:\\html.txt','w') as f:#如果没有解码转换为字符，那么应该改为"wb"
+			f.write(html)
+			f.close()
+		#print 'HTML has written to "html.txt!"'
+		return html
+	def getHtml_cookie(self,data={}):#带cookie的抓取网页
+		try:
+			rqs=urllib.request.Request(self.url,headers=data)
+			response=self.opener.open(request)
+		except urllib.request.URLError as e:
+			if hasattr(e,'code'):
+				print('Connection Failed-1: '+str(e.code))
+				sys.exit(0)
+			if hasattr(e,'reason'):
+				print('Conection Failed-2:'+str(e.reason))
+				sys.exit(0)
+		html=response.read().decode("utf-8")
+		self.html=html
+		with open('html.txt','w') as f:
+			f.write(html)
+			f.close()
+		return html
+	def Match_regex(self,pattern):#抓取的网页中获取目标字段，方式:正则表达式,记得非贪婪匹配.*?
+		#待解决：正则表达式卡死问题
+		#print "Matching:"
+		p=re.compile(pattern,re.S)
+		items=re.findall(p,self.html)
+		counts=len(items)
+		if counts!=0:
+			self.records=items#抓取的字段信息存于实例的records
+			#print "[ "+str(counts)+" ] items successfully match "+"[ "+pattern+" ]"
+			#print("Matching well done")
+			return items#返回形式：含元组的列表
+		else:
+			self.records=[]
+			print("No item match "+"[ "+pattern+" ]!!")
+			return items
+	def Match_bs(self):#抓取的网页中获取目标字段，方式:BeautifulSoup,css选择器
+		#print "BeautifulSoup Making..."
+		lst=[]
+		lst.append(self.url)
+		soup=BeautifulSoup(self.html,'html.parser')
+		price_tag=soup.select('div.content > div.price > span.total')
+		if price_tag!=[]:
+			price=price_tag[0].get_text('',strip=True).encode('utf-8')
+		else:
+			price="None"
+		#print price
+		lst.append(price)
+		h_info=soup.select('div.zf-room > p')
+		for tag in h_info:
+			lst.append(tag.get_text('',strip=True).encode('utf-8'))
+			name_tag=soup.select('div.brokerName > a.name')
+		if name_tag!=[]:
+			name=name_tag[0].get_text().encode('utf-8')
+		else:
+			name="None"
+		phone_tag=soup.select('div.brokerInfo  div.phone')
+		if phone_tag!=[]:
+			phone=phone_tag[0].get_text('',strip=True).encode('utf-8')
+		else:
+			phone="None"
+		lst.append(name)
+		lst.append(phone)
+		self.records=lst
+		print("Soup well Done!!")
+		return lst
+	def Csv_write(self,filename,yn):#将实例当前保存的字段信息保存至指定文件，yn='wb','w'或者'ab+','a'
+		with open("D:\\"+filename+'.csv',yn) as output:
+			writer=csv.writer(output)
+			for i in self.records:
+				if type(i)==str:
+					clean=" ".join(i.strip().split())
+					row=[clean]#去除两侧空白字符
+					writer.writerow(row)
+				elif type(i)==tuple:
+					#print(i)
+					row=[" ".join(ele.strip().split()) for ele in i ]
+					#print(row)
+					writer.writerow(row)
+				else:
+					print("Wrong type!")
+		#print('Records has written to "'+filename+'.csv"!!')
+		output.close()
+
+
+#开爬：
+def run(urlbase,urle,pc,filename,pattern):
+	lst=[]
+	start=dt.now()
+	print("="*10+"Start: "+str(start)+"="*10)
+	pc_lst=pc.split(":")
+	cstart=int(pc_lst[0])
+	cend=int(pc_lst[1])
+	for p in range(cstart,(cend+1)):
+		url=urlbase+str(p)+urle
+		hk=spider(url)
+		hk.getHtml(data)
+		res=hk.Match_regex(pattern)
+		hk.Csv_write(filename,'a+')
+		lst.append(len(res))
+		time.sleep(random.randint(1,3))#随机停止1-3秒
+	end=dt.now()
+	print("="*20)
+	print("Start: "+str(start))
+	print("End: "+str(end))
+	t=(end-start).seconds
+	print("RunTime: "+str(t)+" secs")
+	return lst
+
+'''
+
+#测试2：爬取链家
+pattern='<p.*?class="content__list--item--title.*?twoline">.*?<a.*?target="_blank".*?href="(.*?)">(.*?)</a>.*?</p>.*?<p.*?class="content__list--item--des">.*?<a.*?target="_blank".*?href=.*?>(.*?)</a>.*?-.*?<a.*?href=.*?target="_blank">(.*?)</a>.*?-.*?<a.*?title=.*?>(.*?)</a>.*?<i>/</i>(.*?)<i>/</i>(.*?)<i>/</i>(.*?)<span.*?class="hide">.*?<i>/</i>(.*?)</span>.*?</p>.*?<span.*?class="content__list--item-price">.*?<em>(.*?)</em>(.*?)</span>'
+
+pRange=sys.argv[1]#字符串，起始结束用“:”隔开
+res=run('https://sh.lianjia.com/zufang/songjiang/pg','/#contentList',pRange,'Lianjiazufang_songjiang',pattern)
+print(res)
+'''
+
+data={
+	'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36',
+	'Referer': 'http://femhzs.mofcom.gov.cn/fecpmvc/pages/fem/CorpJWList_nav.pageNoLink.html?session=T&sp=1898&sp=S+_t1.CORP_CDE%2C+_t1.id&sp=T&sp=S',
+	'Host': 'femhzs.mofcom.gov.cn',
+	'Cookie': 'JSESSIONID=4F5874145183B248C00E95685C3F2B2A; insert_cookie=56224592'
+	}
+#url='http://femhzs.mofcom.gov.cn/fecpmvc/pages/fem/CorpJWList_nav.pageNoLink.html?session=T&sp=0&sp=S+_t1.CORP_CDE%2C+_t1.id&sp=T&sp=S'
+#test=spider(url)
+#html=test.getHtml(data)
+#print(html)
+
+urlbase="http://femhzs.mofcom.gov.cn/fecpmvc/pages/fem/CorpJWList_nav.pageNoLink.html?session=T&sp="
+urle="&sp=S+_t1.CORP_CDE%2C+_t1.id&sp=T&sp=S"
+filename="Investment"
+#pattern='<table class="m-table">.*?<tbody>*?<tr id=.*?>.*?<td>(.*?)</d>.*?<td>(.*?)</td>.*?<td>(.*?)</td>.*?</tr>.*?</tbody>.*?</table>'
+pattern='<tr id=.*?>.*?<td>(.*?)</td>.*?<td>(.*?)</td>.*?<td>(.*?)</td>.*?</tr>'
+pc="2000:4044"
+run(urlbase,urle,pc,filename,pattern)
+
