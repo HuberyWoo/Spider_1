@@ -150,16 +150,6 @@ def run(urlbase,urle,pc,filename,pattern):
 	print("RunTime: "+str(t)+" secs")
 	return lst
 
-'''
-
-#测试2：爬取链家
-pattern='<p.*?class="content__list--item--title.*?twoline">.*?<a.*?target="_blank".*?href="(.*?)">(.*?)</a>.*?</p>.*?<p.*?class="content__list--item--des">.*?<a.*?target="_blank".*?href=.*?>(.*?)</a>.*?-.*?<a.*?href=.*?target="_blank">(.*?)</a>.*?-.*?<a.*?title=.*?>(.*?)</a>.*?<i>/</i>(.*?)<i>/</i>(.*?)<i>/</i>(.*?)<span.*?class="hide">.*?<i>/</i>(.*?)</span>.*?</p>.*?<span.*?class="content__list--item-price">.*?<em>(.*?)</em>(.*?)</span>'
-
-pRange=sys.argv[1]#字符串，起始结束用“:”隔开
-res=run('https://sh.lianjia.com/zufang/songjiang/pg','/#contentList',pRange,'Lianjiazufang_songjiang',pattern)
-print(res)
-'''
-
 data={
 	'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36',
 	'Referer': 'http://femhzs.mofcom.gov.cn/fecpmvc/pages/fem/CorpJWList_nav.pageNoLink.html?session=T&sp=1898&sp=S+_t1.CORP_CDE%2C+_t1.id&sp=T&sp=S',
